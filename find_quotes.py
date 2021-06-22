@@ -27,6 +27,7 @@ def find_matches(matcher, docs):
                 'endSentenceId': d.user_data['sentenceId'][prop[-1].i],
                 'endWordId': d.user_data['wordId'][prop[-1].i],
                 'author': d[toks[1]],
+                'cue': d[toks[0]],
                 'authorSentenceId': d.user_data['sentenceId'][toks[1]],
                 'authorWordId': d.user_data['wordId'][toks[1]],
                 'direct': 'false',
@@ -89,7 +90,7 @@ def load_yaml(filename):
 
 def write_results(results, filename):
     fieldnames = ('articleId', 'startSentenceId', 'startWordId',
-                  'endSentenceId', 'endWordId', 'author',
+                  'endSentenceId', 'endWordId', 'author', 'cue',
                   'authorSentenceId', 'authorWordId', 'direct')
 
     if not filename or filename == '-':
