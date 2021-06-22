@@ -36,7 +36,7 @@ LEXICON:
   - viitata
 
 PATTERNS:
-  -
+  - # AUTHOR sanoo, että PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
         POS: VERB
@@ -46,10 +46,81 @@ PATTERNS:
       RIGHT_ID: author
       REL_OP: '>'
       RIGHT_ATTRS:
-        POS: PROPN
         DEP: nsubj
     - LEFT_ID: cue
       RIGHT_ID: proposition
       REL_OP: '>'
       RIGHT_ATTRS:
         DEP: ccomp
+  - # PROPOSITION, sanoo AUTHOR
+    - RIGHT_ID: cue
+      RIGHT_ATTRS:
+        POS: VERB
+        DEP: parataxis
+        LEMMA:
+          IN: *SPEECH_ACT_VERBS
+    - LEFT_ID: cue
+      RIGHT_ID: author
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: nsubj
+    - LEFT_ID: cue
+      RIGHT_ID: proposition
+      REL_OP: '<'
+      RIGHT_ATTRS:
+        POS: VERB
+  - # AUTHORn mukaan PROPOSITION
+    - RIGHT_ID: cue
+      RIGHT_ATTRS:
+        LEMMA: mukaan
+        DEP: case
+    - LEFT_ID: cue
+      RIGHT_ID: author
+      REL_OP: '<'
+      RIGHT_ATTRS:
+        DEP: obl
+    - LEFT_ID: author
+      RIGHT_ID: proposition
+      REL_OP: '<'
+      RIGHT_ATTRS:
+        POS: VERB
+  - # AUTHORn mielestä PROPOSITION
+    - RIGHT_ID: cue
+      RIGHT_ATTRS:
+        LEMMA: mieli
+        DEP: obl
+        MORPH:
+          IS_SUBSET:
+          - Case=Ela
+    - LEFT_ID: cue
+      RIGHT_ID: author
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: 'nmod:poss'
+    - LEFT_ID: cue
+      RIGHT_ID: proposition
+      REL_OP: '<'
+      RIGHT_ATTRS:
+        POS: VERB
+  - # AUTHOR sanoo PROPOSITION[tekevän ...]
+    - RIGHT_ID: cue
+      RIGHT_ATTRS:
+        POS: VERB
+        LEMMA:
+          IN: *SPEECH_ACT_VERBS
+    - LEFT_ID: cue
+      RIGHT_ID: author
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: nsubj
+    - LEFT_ID: cue
+      RIGHT_ID: proposition
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP:
+          IN: [xcomp, 'xcomp:ds']
+        MORPH:
+          IS_SUBSET:
+          - VerbForm=Part
+          - Voice=Act
+
