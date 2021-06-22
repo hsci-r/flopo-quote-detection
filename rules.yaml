@@ -1,0 +1,55 @@
+LEXICON:
+  SPEECH_ACT_VERBS: &SPEECH_ACT_VERBS
+  - arvella
+  - arvioida
+  - edellyttää
+  - ehdottaa
+  - huomauttaa
+  - ihmetellä
+  - ilmoittaa
+  - jatkaa
+  - katsoa
+  - kehua
+  - kertoa
+  - kiitellä
+  - kirjoittaa
+  - korostaa
+  - kuitata
+  - kysyä
+  - lisätä
+  - luetella
+  - muistuttaa
+  - myöntää
+  - pahoitella
+  - painottaa
+  - perustella
+  - sanoa
+  - summata
+  - tarkentaa
+  - todeta
+  - tviitata
+  - tähdentää
+  - uskoa
+  - valittaa
+  - varoittaa
+  - vastata
+  - viitata
+
+PATTERNS:
+  -
+    - RIGHT_ID: cue
+      RIGHT_ATTRS:
+        POS: VERB
+        LEMMA:
+          IN: *SPEECH_ACT_VERBS
+    - LEFT_ID: cue
+      RIGHT_ID: author
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        POS: PROPN
+        DEP: nsubj
+    - LEFT_ID: cue
+      RIGHT_ID: proposition
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: ccomp

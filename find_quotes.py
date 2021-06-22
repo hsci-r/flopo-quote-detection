@@ -2,6 +2,7 @@ import argparse
 import csv
 from collections import defaultdict
 import spacy
+import yaml
 import warnings
 
 # TODO
@@ -12,34 +13,6 @@ import warnings
 # - author name extraction from the head
 # - naive pronoun resolution
 # - message nouns
-
-
-SPEECH_ACT_VERBS = [
-    'arvella', 'arvioida', 'edellyttää', 'ehdottaa', 'huomauttaa',
-    'ihmetellä', 'ilmoittaa', 'jatkaa', 'katsoa', 'kehua', 'kertoa',
-    'kiitellä', 'kirjoittaa', 'korostaa', 'kuitata', 'kysyä', 'lisätä',
-    'luetella', 'muistuttaa', 'myöntää', 'pahoitella', 'painottaa',
-    'perustella', 'sanoa', 'summata', 'tarkentaa', 'todeta', 'tviitata',
-    'tähdentää', 'uskoa', 'valittaa', 'varoittaa', 'vastata', 'viitata'
-]
-
-
-# FIXME right now there's only one pattern as an example:
-# author <---[nsubj]--- speech_act_verb ---[ccomp]---> proposition
-PATTERNS = [
-    [
-        { 'RIGHT_ID': 'cue',
-          'RIGHT_ATTRS': {'POS': 'VERB', 'LEMMA': {'IN': SPEECH_ACT_VERBS }}},
-        { 'LEFT_ID': 'cue',
-          'RIGHT_ID': 'author',
-          'REL_OP': '>',
-          'RIGHT_ATTRS': {'POS': 'PROPN', 'DEP': 'nsubj'}},
-        { 'LEFT_ID': 'cue',
-          'RIGHT_ID': 'proposition',
-          'REL_OP': '>',
-          'RIGHT_ATTRS': {'DEP': 'ccomp'}},
-    ]
-]
 
 
 def read_docs(fp, vocab):
@@ -91,18 +64,25 @@ def read_docs(fp, vocab):
         **tokens)
 
 
+def load_yaml(filename):
+    with open(filename) as fp:
+        return yaml.load(fp)
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Rule-based quote detection.')
     parser.add_argument('-i', '--input-file', metavar='FILE')
+    parser.add_argument('-r', '--rules-file', default='rules.yaml', metavar='FILE')
     parser.add_argument('-o', '--output-file', metavar='FILE')
     return parser.parse_args()
 
     
 def main():
     args = parse_arguments()
+    rules = load_yaml(args.rules_file)
     nlp = spacy.blank('fi')
     matcher = spacy.matcher.DependencyMatcher(nlp.vocab)
-    matcher.add('quote_triplet', PATTERNS)
+    matcher.add('quote_triplet', rules['PATTERNS'])
 
     with open(args.output_file, 'w+') as outfp:
         writer = csv.DictWriter(
