@@ -2,6 +2,7 @@ import argparse
 import csv
 from collections import defaultdict
 import spacy
+import sys
 import yaml
 import warnings
 
@@ -13,6 +14,23 @@ import warnings
 # - author name extraction from the head
 # - naive pronoun resolution
 # - message nouns
+
+
+def find_matches(matcher, docs):
+    for d in docs:
+        for m_id, toks in matcher(d):
+            prop = list(d[toks[2]].subtree)
+            yield {
+                'articleId': d.user_data['articleId'],
+                'startSentenceId': d.user_data['sentenceId'][prop[0].i],
+                'startWordId': d.user_data['wordId'][prop[0].i],
+                'endSentenceId': d.user_data['sentenceId'][prop[-1].i],
+                'endWordId': d.user_data['wordId'][prop[-1].i],
+                'author': d[toks[1]],
+                'authorSentenceId': d.user_data['sentenceId'][toks[1]],
+                'authorWordId': d.user_data['wordId'][toks[1]],
+                'direct': 'false',
+            }
 
 
 def read_docs(fp, vocab):
@@ -69,6 +87,22 @@ def load_yaml(filename):
         return yaml.load(fp)
 
 
+def write_results(results, filename):
+    fieldnames = ('articleId', 'startSentenceId', 'startWordId',
+                  'endSentenceId', 'endWordId', 'author',
+                  'authorSentenceId', 'authorWordId', 'direct')
+
+    if not filename or filename == '-':
+        writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(results)
+    else:
+        with open(filename, 'w+') as outfp:
+            writer = csv.DictWriter(outfp, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(results)
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Rule-based quote detection.')
     parser.add_argument('-i', '--input-file', metavar='FILE')
@@ -84,28 +118,11 @@ def main():
     matcher = spacy.matcher.DependencyMatcher(nlp.vocab)
     matcher.add('quote_triplet', rules['PATTERNS'])
 
-    with open(args.output_file, 'w+') as outfp:
-        writer = csv.DictWriter(
-            outfp,
-            fieldnames=('articleId', 'startSentenceId', 'startWordId',
-                        'endSentenceId', 'endWordId', 'author',
-                        'authorSentenceId', 'authorWordId', 'direct'))
-        writer.writeheader()
-        with open(args.input_file) as infp:
-            for d in read_docs(infp, nlp.vocab):
-                for m_id, toks in matcher(d):
-                    prop = list(d[toks[2]].subtree)
-                    writer.writerow({
-                        'articleId': d.user_data['articleId'],
-                        'startSentenceId': d.user_data['sentenceId'][prop[0].i],
-                        'startWordId': d.user_data['wordId'][prop[0].i],
-                        'endSentenceId': d.user_data['sentenceId'][prop[-1].i],
-                        'endWordId': d.user_data['wordId'][prop[-1].i],
-                        'author': d[toks[1]],
-                        'authorSentenceId': d.user_data['sentenceId'][toks[1]],
-                        'authorWordId': d.user_data['wordId'][toks[1]],
-                        'direct': 'false',
-                    })
+    with open(args.input_file) as infp:
+        docs = read_docs(infp, nlp.vocab)
+        results = find_matches(matcher, docs)
+        write_results(results, args.output_file)
+
 
 if __name__ == '__main__':
     main()
