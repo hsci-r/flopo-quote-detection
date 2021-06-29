@@ -36,6 +36,7 @@ LEXICON:
   - viitata
 
 PATTERNS:
+  1:
   - # AUTHOR sanoo, että PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -52,6 +53,7 @@ PATTERNS:
       REL_OP: '>'
       RIGHT_ATTRS:
         DEP: ccomp
+  2:
   - # PROPOSITION, sanoo AUTHOR
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -69,6 +71,7 @@ PATTERNS:
       REL_OP: '<'
       RIGHT_ATTRS:
         POS: VERB
+  3:
   - # AUTHORn mukaan PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -84,6 +87,7 @@ PATTERNS:
       REL_OP: '<'
       RIGHT_ATTRS:
         POS: VERB
+  4:
   - # AUTHORn mielestä PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -102,6 +106,7 @@ PATTERNS:
       REL_OP: '<'
       RIGHT_ATTRS:
         POS: VERB
+  5:
   - # AUTHOR sanoo PROPOSITION[tekevän ...]
     - RIGHT_ID: cue
       RIGHT_ATTRS:

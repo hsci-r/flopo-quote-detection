@@ -9,7 +9,6 @@ import warnings
 # TODO
 # - deal with errors while reading the data
 #   - ignore documents that produce errors, but continue
-# - add the 4 rules used in the Prolog code
 # - quotation marks and multi-sentence quotes
 # - author name extraction from the head
 # - naive pronoun resolution
@@ -27,9 +26,12 @@ def find_matches(matcher, docs):
                 'endSentenceId': d.user_data['sentenceId'][prop[-1].i],
                 'endWordId': d.user_data['wordId'][prop[-1].i],
                 'author': d[toks[1]],
-                'cue': d[toks[0]],
-                'authorSentenceId': d.user_data['sentenceId'][toks[1]],
-                'authorWordId': d.user_data['wordId'][toks[1]],
+                #'cue': d[toks[0]],
+                'authorHead': d.user_data['sentenceId'][toks[1]] + '-' \
+                              + d.user_data['wordId'][toks[1]],
+                #'authorSentenceId': d.user_data['sentenceId'][toks[1]],
+                #'authorWordId': d.user_data['wordId'][toks[1]],
+                #'pattern': m_id,
                 'direct': 'false',
             }
 
@@ -90,8 +92,8 @@ def load_yaml(filename):
 
 def write_results(results, filename):
     fieldnames = ('articleId', 'startSentenceId', 'startWordId',
-                  'endSentenceId', 'endWordId', 'author', 'cue',
-                  'authorSentenceId', 'authorWordId', 'direct')
+                  'endSentenceId', 'endWordId', 'author',
+                  'authorHead', 'direct')
 
     if not filename or filename == '-':
         writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
@@ -117,7 +119,8 @@ def main():
     rules = load_yaml(args.rules_file)
     nlp = spacy.blank('fi')
     matcher = spacy.matcher.DependencyMatcher(nlp.vocab)
-    matcher.add('quote_triplet', rules['PATTERNS'])
+    for pat_id, pattern in rules['PATTERNS'].items():
+        matcher.add(pat_id, pattern)
 
     with open(args.input_file) as infp:
         docs = read_docs(infp, nlp.vocab)
