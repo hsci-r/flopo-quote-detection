@@ -70,7 +70,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: VERB
+        POS: {IN: [VERB, ADJ]}
   3:
   - # AUTHORn mukaan PROPOSITION
     - RIGHT_ID: cue
@@ -86,7 +86,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: VERB
+        POS: {IN: [VERB, ADJ]}
   4:
   - # AUTHORn mielestä PROPOSITION
     - RIGHT_ID: cue
@@ -94,7 +94,7 @@ PATTERNS:
         LEMMA: mieli
         DEP: obl
         MORPH:
-          IS_SUBSET:
+          IS_SUPERSET:
           - Case=Ela
     - LEFT_ID: cue
       RIGHT_ID: author
@@ -105,7 +105,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: VERB
+        POS: {IN: [VERB, ADJ]}
   5:
   - # AUTHOR sanoo PROPOSITION[tekevän ...]
     - RIGHT_ID: cue
@@ -125,7 +125,7 @@ PATTERNS:
         DEP:
           IN: [xcomp, 'xcomp:ds']
         MORPH:
-          IS_SUBSET:
+          IS_SUPERSET:
           - VerbForm=Part
           - Voice=Act
 
