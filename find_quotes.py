@@ -85,39 +85,39 @@ def extract_proposition(doc, cue, prop_head, pat_id):
             start = doc[min(q, q2)]
             end = doc[max(q, q2)]
             direct = True
-    
-    return (doc.user_data['sentenceId'][start.i],
-            doc.user_data['wordId'][start.i],
-            doc.user_data['sentenceId'][end.i],
-            doc.user_data['wordId'][end.i],
-            direct)
+
+    return doc[start.i:end.i+1], direct
+
+
+def find_quotes(matcher, doc):
+    for m_id, toks in matcher(doc):
+        try:
+            prop, direct = extract_proposition(doc, doc[toks[0]], doc[toks[2]], m_id)
+            author = doc[toks[1]]
+            cue = doc[toks[0]]
+            yield (prop, author, cue, direct)
+        except Exception as e:
+            warnings.warn(e)
+
+
+def match_to_dict(doc, prop, author, cue, direct, lexicon):
+    return {
+        'articleId': doc.user_data['articleId'],
+        'startSentenceId': doc.user_data['sentenceId'][prop[0].i],
+        'startWordId': doc.user_data['wordId'][prop[0].i],
+        'endSentenceId': doc.user_data['sentenceId'][prop[-1].i],
+        'endWordId': doc.user_data['wordId'][prop[-1].i],
+        'author': extract_author(author, lexicon),
+        'authorHead': doc.user_data['sentenceId'][author.i] + '-' \
+                      + doc.user_data['wordId'][author.i],
+        'direct': 'true' if direct else 'false'
+    }
 
 
 def find_matches(matcher, docs, lexicon):
     for d in docs:
-        for m_id, toks in matcher(d):
-            prop_s_start, prop_w_start, prop_s_end, prop_w_end, direct = \
-                (None, None, None, None, None)
-            try:
-                prop_s_start, prop_w_start, prop_s_end, prop_w_end, direct = \
-                    extract_proposition(d, d[toks[0]], d[toks[2]], m_id)
-            except Exception as e:
-                warnings.warn(e)
-            yield {
-                'articleId': d.user_data['articleId'],
-                'startSentenceId': prop_s_start,
-                'startWordId': prop_w_start,
-                'endSentenceId': prop_s_end,
-                'endWordId': prop_w_end,
-                'author': extract_author(d[toks[1]], lexicon),
-                #'cue': d[toks[0]],
-                'authorHead': d.user_data['sentenceId'][toks[1]] + '-' \
-                              + d.user_data['wordId'][toks[1]],
-                #'authorSentenceId': d.user_data['sentenceId'][toks[1]],
-                #'authorWordId': d.user_data['wordId'][toks[1]],
-                #'pattern': m_id,
-                'direct': 'true' if direct else 'false'
-            }
+        for prop, author, cue, direct in find_quotes(matcher, d):
+            yield match_to_dict(d, prop, author, cue, direct, lexicon)
 
 
 def read_docs(fp, vocab):
