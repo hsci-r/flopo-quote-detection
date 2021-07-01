@@ -7,8 +7,6 @@ import yaml
 import warnings
 
 # TODO
-# - deal with errors while reading the data
-#   - ignore documents that produce errors, but continue
 # - naive pronoun resolution
 # - integrate NER into author detection? (capture complete names, esp. of
 #   organizations)
@@ -124,6 +122,22 @@ def find_matches(matcher, docs, lexicon):
 
 def read_docs(fp, vocab):
     'Read documents from CoNLL-CSV format to spaCy Doc objects.'
+
+    def make_doc(vocab, tokens, doc_id, par_ids, sent_ids, tok_ids):
+        try:
+            return spacy.tokens.Doc(
+                vocab,
+                user_data={ 'articleId': cur_doc_id,
+                            'paragraphId': par_ids,
+                            'sentenceId': sent_ids,
+                            'wordId': tok_ids },
+                **tokens)
+        except Exception as e:
+            warnings.warn(
+                'Ignoring articleId=\'{}\': There is something wrong'
+                ' with the document - please investigate.'\
+                .format(doc_id))
+    
     reader = csv.DictReader(fp)
     spacy.tokens.Token.set_extension('paragraphId', default=None)
     spacy.tokens.Token.set_extension('sentenceId', default=None)
@@ -134,13 +148,9 @@ def read_docs(fp, vocab):
     for row in reader:
         if row['articleId'] != cur_doc_id:
             if cur_doc_id is not None:
-                yield spacy.tokens.Doc(
-                    vocab,
-                    user_data={ 'articleId': cur_doc_id,
-                                'paragraphId': par_ids,
-                                'sentenceId': sent_ids,
-                                'wordId': tok_ids },
-                    **tokens)
+                doc = make_doc(vocab, tokens, cur_doc_id, par_ids, sent_ids, tok_ids)
+                if doc is not None:
+                    yield doc
                 par_ids, sent_ids, tok_ids = [], [], []
                 tokens = defaultdict(lambda: list())
             cur_doc_id, pos, offset = row['articleId'], 0, -1
@@ -166,13 +176,9 @@ def read_docs(fp, vocab):
         sent_ids.append(row['sentenceId'])
         tok_ids.append(row['wordId'])
         pos += 1
-    yield spacy.tokens.Doc(
-        vocab,
-        user_data={ 'articleId': cur_doc_id,
-                    'paragraphId': par_ids,
-                    'sentenceId': sent_ids,
-                    'wordId': tok_ids },
-        **tokens)
+    doc = make_doc(vocab, tokens, cur_doc_id, par_ids, sent_ids, tok_ids)
+    if doc is not None:
+        yield doc
 
 
 def load_yaml(filename):
