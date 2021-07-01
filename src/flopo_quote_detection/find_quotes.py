@@ -1,10 +1,14 @@
 import argparse
 import csv
 from collections import defaultdict
+import pkg_resources
 import spacy
 import sys
 import yaml
 import warnings
+
+
+DEFAULT_RULES_FILE = 'rules.yaml'
 
 # TODO
 # - naive pronoun resolution
@@ -181,9 +185,13 @@ def read_docs(fp, vocab):
         yield doc
 
 
-def load_yaml(filename):
-    with open(filename) as fp:
-        return yaml.safe_load(fp)
+def load_rules(filename):
+    if filename is not None:
+        with open(filename) as fp:
+            return yaml.safe_load(fp)
+    else:
+        data = pkg_resources.resource_string(__name__, DEFAULT_RULES_FILE)
+        return yaml.safe_load(data)
 
 
 def write_results(results, filename):
@@ -205,14 +213,14 @@ def write_results(results, filename):
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Rule-based quote detection.')
     parser.add_argument('-i', '--input-file', metavar='FILE')
-    parser.add_argument('-r', '--rules-file', default='rules.yaml', metavar='FILE')
+    parser.add_argument('-r', '--rules-file', metavar='FILE')
     parser.add_argument('-o', '--output-file', metavar='FILE')
     return parser.parse_args()
 
     
 def main():
     args = parse_arguments()
-    rules = load_yaml(args.rules_file)
+    rules = load_rules(args.rules_file)
     nlp = spacy.blank('fi')
     matcher = spacy.matcher.DependencyMatcher(nlp.vocab)
     for pat_id, pattern in rules['PATTERNS'].items():
