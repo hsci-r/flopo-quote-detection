@@ -9,11 +9,8 @@ import warnings
 # TODO
 # - deal with errors while reading the data
 #   - ignore documents that produce errors, but continue
-# - quotation marks and multi-sentence quotes
-# - author name extraction from the head
-# - better proposition extraction (omit authors and cues)
 # - naive pronoun resolution
-# - integrate NER into author detection (capture complete names, esp. of
+# - integrate NER into author detection? (capture complete names, esp. of
 #   organizations)
 
 def extract_author(token, lexicon):
@@ -37,23 +34,83 @@ def extract_author(token, lexicon):
     return token.lemma_
 
 
-def extract_proposition(token):
-	# TODO look for a hyphen at the beginning of the paragraph
-	# TODO if there is a quotation mark before the cue and the proposition head,
-	# look for the matching quotation mark
-    return list(token.subtree)
+def extract_proposition(doc, cue, prop_head, pat_id):
+
+    def _find_par_start(doc, token):
+        '''Finds the token at the beginning of the paragraph
+           starting at `token`.'''
+        par_id = doc.user_data['paragraphId'][token.i]
+        par_start = token
+        while par_start.i > 0 and \
+                doc.user_data['paragraphId'][par_start.i-1] == par_id:
+            par_start = doc[par_start.i-1]
+        return par_start
+
+    def _quote_between(doc, tok_1, tok_2):
+        i = min(tok_1.i, tok_2.i)
+        while i < max(tok_1.i, tok_2.i):
+            if doc[i].norm_ == '"':
+                return i
+            i += 1
+        return None
+    
+    def _find_matching_quote(doc, start, direction):
+        i = start+direction
+        while i > 0 and i < len(doc):
+            if doc[i].norm_ == '"':
+                return i
+            i += direction
+        return None
+    
+    tokens = [t for t in prop_head.subtree \
+                    if (t not in cue.subtree and t.dep_ != 'punct') \
+                       or prop_head.head == cue]
+    if not tokens:
+        raise Exception('No proposition extracted')
+    start, end = tokens[0], tokens[-1]
+    direct = False
+
+    # if the paragraph starts with hyphen -> extend the proposition until there
+    if pat_id == 2:
+        par_start = _find_par_start(doc, prop_head)
+        if par_start.norm_ == '-':
+            start = par_start
+            direct = True
+
+    # there is a quotation mark between cue and proposition
+    # -> proposition is enclosed in quotes
+    q = _quote_between(doc, cue, prop_head)
+    if q is not None:
+        direction = 1 if prop_head.i > cue.i else -1
+        q2 = _find_matching_quote(doc, q, direction)
+        if q2 is not None and prop_head.i in range(min(q, q2), max(q, q2)):
+            start = doc[min(q, q2)]
+            end = doc[max(q, q2)]
+            direct = True
+    
+    return (doc.user_data['sentenceId'][start.i],
+            doc.user_data['wordId'][start.i],
+            doc.user_data['sentenceId'][end.i],
+            doc.user_data['wordId'][end.i],
+            direct)
 
 
 def find_matches(matcher, docs, lexicon):
     for d in docs:
         for m_id, toks in matcher(d):
-            prop = extract_proposition(d[toks[2]])
+            prop_s_start, prop_w_start, prop_s_end, prop_w_end, direct = \
+                (None, None, None, None, None)
+            try:
+                prop_s_start, prop_w_start, prop_s_end, prop_w_end, direct = \
+                    extract_proposition(d, d[toks[0]], d[toks[2]], m_id)
+            except Exception as e:
+                warnings.warn(e)
             yield {
                 'articleId': d.user_data['articleId'],
-                'startSentenceId': d.user_data['sentenceId'][prop[0].i],
-                'startWordId': d.user_data['wordId'][prop[0].i],
-                'endSentenceId': d.user_data['sentenceId'][prop[-1].i],
-                'endWordId': d.user_data['wordId'][prop[-1].i],
+                'startSentenceId': prop_s_start,
+                'startWordId': prop_w_start,
+                'endSentenceId': prop_s_end,
+                'endWordId': prop_w_end,
                 'author': extract_author(d[toks[1]], lexicon),
                 #'cue': d[toks[0]],
                 'authorHead': d.user_data['sentenceId'][toks[1]] + '-' \
@@ -61,17 +118,18 @@ def find_matches(matcher, docs, lexicon):
                 #'authorSentenceId': d.user_data['sentenceId'][toks[1]],
                 #'authorWordId': d.user_data['wordId'][toks[1]],
                 #'pattern': m_id,
-                'direct': 'false',
+                'direct': 'true' if direct else 'false'
             }
 
 
 def read_docs(fp, vocab):
     'Read documents from CoNLL-CSV format to spaCy Doc objects.'
     reader = csv.DictReader(fp)
+    spacy.tokens.Token.set_extension('paragraphId', default=None)
     spacy.tokens.Token.set_extension('sentenceId', default=None)
     spacy.tokens.Token.set_extension('wordId', default=None)
     
-    cur_doc_id, pos, offset, sent_ids, tok_ids = None, 0, -1, [], []
+    cur_doc_id, pos, offset, par_ids, sent_ids, tok_ids = None, 0, -1, [], [], []
     tokens = defaultdict(lambda: list())
     for row in reader:
         if row['articleId'] != cur_doc_id:
@@ -79,10 +137,11 @@ def read_docs(fp, vocab):
                 yield spacy.tokens.Doc(
                     vocab,
                     user_data={ 'articleId': cur_doc_id,
+                                'paragraphId': par_ids,
                                 'sentenceId': sent_ids,
                                 'wordId': tok_ids },
                     **tokens)
-                sent_ids, tok_ids = [], []
+                par_ids, sent_ids, tok_ids = [], [], []
                 tokens = defaultdict(lambda: list())
             cur_doc_id, pos, offset = row['articleId'], 0, -1
         if int(row['wordId']) == 1:
@@ -103,12 +162,14 @@ def read_docs(fp, vocab):
         tokens['heads'].append(pos if head == 0 else head+offset)
         tokens['deps'].append(row['deprel'])
         tokens['spaces'].append('SpaceAfter=No' not in row['misc'])
+        par_ids.append(row['paragraphId'])
         sent_ids.append(row['sentenceId'])
         tok_ids.append(row['wordId'])
         pos += 1
     yield spacy.tokens.Doc(
         vocab,
         user_data={ 'articleId': cur_doc_id,
+                    'paragraphId': par_ids,
                     'sentenceId': sent_ids,
                     'wordId': tok_ids },
         **tokens)
