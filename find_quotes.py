@@ -11,21 +11,50 @@ import warnings
 #   - ignore documents that produce errors, but continue
 # - quotation marks and multi-sentence quotes
 # - author name extraction from the head
+# - better proposition extraction (omit authors and cues)
 # - naive pronoun resolution
-# - message nouns
+# - integrate NER into author detection (capture complete names, esp. of
+#   organizations)
+
+def extract_author(token, lexicon):
+    # message nouns (constructions like "Xn ehdotuksen/tietojen/tulkinnan mukaan")
+    if token.lemma_ in lexicon['MESSAGE_NOUNS']:
+        for d in token.children:
+            if d.dep_ in ('nmod:poss', 'nmod:gsubj'):
+                token = d
+                break
+    # constructions of the form "puheenjohtajan Antti Palolan mukaan"
+    # puheenjohtaja[NOUN] --[appos]--> Antti[PROPN] --[flat:name]--> Palola[PROPN]
+    if token.pos_ == 'NOUN':
+        for d in token.children:
+            if d.pos_ == 'PROPN' and d.dep_ == 'appos':
+                token = d
+                break
+    # names in form "FirstName LastName"
+    for d in token.children:
+        if d.dep_ == 'flat:name':
+            return ' '.join([token.lemma_, d.lemma_])
+    return token.lemma_
 
 
-def find_matches(matcher, docs):
+def extract_proposition(token):
+	# TODO look for a hyphen at the beginning of the paragraph
+	# TODO if there is a quotation mark before the cue and the proposition head,
+	# look for the matching quotation mark
+    return list(token.subtree)
+
+
+def find_matches(matcher, docs, lexicon):
     for d in docs:
         for m_id, toks in matcher(d):
-            prop = list(d[toks[2]].subtree)
+            prop = extract_proposition(d[toks[2]])
             yield {
                 'articleId': d.user_data['articleId'],
                 'startSentenceId': d.user_data['sentenceId'][prop[0].i],
                 'startWordId': d.user_data['wordId'][prop[0].i],
                 'endSentenceId': d.user_data['sentenceId'][prop[-1].i],
                 'endWordId': d.user_data['wordId'][prop[-1].i],
-                'author': d[toks[1]],
+                'author': extract_author(d[toks[1]], lexicon),
                 #'cue': d[toks[0]],
                 'authorHead': d.user_data['sentenceId'][toks[1]] + '-' \
                               + d.user_data['wordId'][toks[1]],
@@ -124,7 +153,7 @@ def main():
 
     with open(args.input_file) as infp:
         docs = read_docs(infp, nlp.vocab)
-        results = find_matches(matcher, docs)
+        results = find_matches(matcher, docs, rules['LEXICON'])
         write_results(results, args.output_file)
 
 

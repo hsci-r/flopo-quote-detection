@@ -34,6 +34,13 @@ LEXICON:
   - varoittaa
   - vastata
   - viitata
+  MESSAGE_NOUNS:
+  - ehdotus
+  - laskelma
+  - muistio
+  - tiedote
+  - tieto
+  - tulkinta
 
 PATTERNS:
   1:
