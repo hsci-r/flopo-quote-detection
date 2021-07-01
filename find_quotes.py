@@ -177,7 +177,7 @@ def read_docs(fp, vocab):
 
 def load_yaml(filename):
     with open(filename) as fp:
-        return yaml.load(fp)
+        return yaml.safe_load(fp)
 
 
 def write_results(results, filename):
