@@ -17,3 +17,8 @@ find_quotes -i [INPUT_FILE] -r [RULES_FILE] -o [OUTPUT_FILE]
   (default: `src/flopo_quote_detection/rules.yaml`)
 * `OUTPUT_FILE` is the CSV file that will contain the results; if none is
   given, the results are printed to stdout.
+
+The minimal working call is thus:
+```
+find_quotes -i [INPUT_FILE]
+```
