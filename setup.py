@@ -15,7 +15,7 @@ setup(
     package_dir={'': 'src'},
     package_data={'flopo_quote_detection': ['rules.yaml']},
     test_suite='tests',
-    install_requires=[],
+    install_requires=['pyyaml', 'spacy'],
     entry_points={
         'console_scripts' : [
             'find_quotes   = flopo_quote_detection.find_quotes:main',
