@@ -103,6 +103,39 @@ def find_quotes(matcher, doc):
         except Exception as e:
             warnings.warn(e)
 
+# Recognize direct quotes encompassing an entire paragraph, without a cue.
+# The conditions are as follows:
+# - the last sentence of the previous paragraph contains
+#   an already recognized quote,
+# - the beginning of this paragraph is not already marked as a quote,
+# - the paragraph starts with a hyphen or is enclosed in quotation marks.
+def quote_paragraphs(doc, prop_spans):
+    
+    def _next_paragraph(doc, token):
+        i = token.i
+        prev_par_id = int(doc.user_data['paragraphId'][i])
+        while int(doc.user_data['paragraphId'][i]) != prev_par_id+1:
+            i += 1
+            if i >= len(doc):
+                return None
+        j = i
+        while int(doc.user_data['paragraphId'][j]) == prev_par_id+1:
+            j += 1
+            if j >= len(doc):
+                return None
+        return doc[i:j]
+    
+    quote_tokens = set(tok.i for (ps, a) in prop_spans for tok in ps)
+    for (ps, author) in prop_spans:
+        np = _next_paragraph(doc, ps[-1])
+        if np is not None \
+                and int(doc.user_data['sentenceId'][np[0].i]) \
+                    == int(doc.user_data['sentenceId'][ps[-1].i])+1 \
+                and (np[0].norm_ == '-' \
+                     or np[0].norm_ == '"' and np[-1].norm_ == '"') \
+                and not any(tok.i in quote_tokens for tok in np):
+            yield (np, author, None, True)
+
 
 def match_to_dict(doc, prop, author, cue, direct, lexicon):
     return {
@@ -120,7 +153,12 @@ def match_to_dict(doc, prop, author, cue, direct, lexicon):
 
 def find_matches(matcher, docs, lexicon):
     for d in docs:
+        prop_spans = []
         for prop, author, cue, direct in find_quotes(matcher, d):
+            yield match_to_dict(d, prop, author, cue, direct, lexicon)
+            prop_spans.append((prop, author))
+        # whole-paragraph quotes
+        for prop, author, cue, direct in quote_paragraphs(d, prop_spans):
             yield match_to_dict(d, prop, author, cue, direct, lexicon)
 
 
