@@ -77,7 +77,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: {IN: [VERB, ADJ]}
+        POS: {IN: [VERB, ADJ, NOUN]}
   3:
   - # AUTHORn mukaan PROPOSITION
     - RIGHT_ID: cue
@@ -93,7 +93,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: {IN: [VERB, ADJ]}
+        POS: {IN: [VERB, ADJ, NOUN]}
   4:
   - # AUTHORn mielestä PROPOSITION
     - RIGHT_ID: cue
@@ -112,7 +112,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: {IN: [VERB, ADJ]}
+        POS: {IN: [VERB, ADJ, NOUN]}
   5:
   - # AUTHOR sanoo PROPOSITION[tekevän ...]
     - RIGHT_ID: cue
