@@ -15,6 +15,12 @@ DEFAULT_RULES_FILE = 'rules.yaml'
 # - integrate NER into author detection? (capture complete names, esp. of
 #   organizations)
 
+def extract_authors(token, lexicon):
+	return ';'.join([extract_author(token, lexicon)] + \
+	                [extract_author(t, lexicon) for t in token.children \
+	                                            if t.dep_ == 'conj'])
+
+
 def extract_author(token, lexicon):
     # message nouns (constructions like "Xn ehdotuksen/tietojen/tulkinnan mukaan")
     if token.lemma_ in lexicon['MESSAGE_NOUNS']:
@@ -144,7 +150,7 @@ def match_to_dict(doc, prop, author, cue, direct, lexicon):
         'startWordId': doc.user_data['wordId'][prop[0].i],
         'endSentenceId': doc.user_data['sentenceId'][prop[-1].i],
         'endWordId': doc.user_data['wordId'][prop[-1].i],
-        'author': extract_author(author, lexicon),
+        'author': extract_authors(author, lexicon),
         'authorHead': doc.user_data['sentenceId'][author.i] + '-' \
                       + doc.user_data['wordId'][author.i],
         'direct': 'true' if direct else 'false'
