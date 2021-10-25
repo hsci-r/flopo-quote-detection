@@ -16,9 +16,9 @@ DEFAULT_RULES_FILE = 'rules.yaml'
 #   organizations)
 
 def extract_authors(token, lexicon):
-	return ';'.join([extract_author(token, lexicon)] + \
-	                [extract_author(t, lexicon) for t in token.children \
-	                                            if t.dep_ == 'conj'])
+    return ';'.join([extract_author(token, lexicon)] + \
+                    [extract_author(t, lexicon) for t in token.children \
+                                                if t.dep_ == 'conj'])
 
 
 def extract_author(token, lexicon):
