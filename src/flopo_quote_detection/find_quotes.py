@@ -107,7 +107,11 @@ def find_quotes(matcher, doc):
             cue = doc[toks[0]]
             yield (prop, author, cue, direct)
         except Exception as e:
-            warnings.warn(e)
+            warnings.warn(
+                'Exception while processing articleId={}, sentenceId={}: {}'\
+                .format(doc.user_data['articleId'],
+                        doc.user_data['sentenceId'][toks[0]],
+                        str(e)))
 
 # Recognize direct quotes encompassing an entire paragraph, without a cue.
 # The conditions are as follows:
