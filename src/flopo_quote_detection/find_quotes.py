@@ -1,11 +1,11 @@
 import argparse
 import csv
 from collections import defaultdict
+import logging
 import pkg_resources
 import spacy
 import sys
 import yaml
-import warnings
 
 
 DEFAULT_RULES_FILE = 'rules.yaml'
@@ -107,7 +107,7 @@ def find_quotes(matcher, doc):
             cue = doc[toks[0]]
             yield (prop, author, cue, direct)
         except Exception as e:
-            warnings.warn(
+            logging.warning(
                 'Exception while processing articleId={}, sentenceId={}: {}'\
                 .format(doc.user_data['articleId'],
                         doc.user_data['sentenceId'][toks[0]],
@@ -185,7 +185,7 @@ def read_docs(fp, vocab):
                             'wordId': tok_ids },
                 **tokens)
         except Exception as e:
-            warnings.warn(
+            logging.warning(
                 'Ignoring articleId=\'{}\': There is something wrong'
                 ' with the document - please investigate.'\
                 .format(doc_id))
@@ -209,7 +209,7 @@ def read_docs(fp, vocab):
         if int(row['wordId']) == 1:
             offset = pos-1
         if not row['word']:
-            warnings.warn(\
+            logging.warning(\
                 'Ignoring empty token: articleId={} sentenceId={} wordId={}'\
                 .format(row['articleId'], row['sentenceId'], row['wordId']))
             pos += 1
@@ -258,16 +258,25 @@ def write_results(results, filename):
             writer.writerows(results)
 
 
+def setup_logging(logfile):
+    if logfile is None:
+        logging.basicConfig(level=logging.INFO)
+    else:
+        logging.basicConfig(filename=logfile, level=logging.INFO)
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Rule-based quote detection.')
     parser.add_argument('-i', '--input-file', metavar='FILE')
     parser.add_argument('-r', '--rules-file', metavar='FILE')
     parser.add_argument('-o', '--output-file', metavar='FILE')
+    parser.add_argument('--logfile', metavar='FILE')
     return parser.parse_args()
 
     
 def main():
     args = parse_arguments()
+    setup_logging(args.logfile)
     rules = load_rules(args.rules_file)
     nlp = spacy.blank('fi')
     matcher = spacy.matcher.DependencyMatcher(nlp.vocab)
