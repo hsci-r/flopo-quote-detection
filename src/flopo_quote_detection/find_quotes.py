@@ -1,6 +1,6 @@
 import argparse
 import csv
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import logging
 import pkg_resources
 import spacy
@@ -10,10 +10,27 @@ import yaml
 
 DEFAULT_RULES_FILE = 'rules.yaml'
 
+Quote = namedtuple('Quote', ['authors', 'proposition', 'direct', 'match'])
+QuoteMatch = namedtuple('QuoteMatch',
+                        ['cue', 'author_head', 'prop_head', 'pat_id'])
+
 # TODO
 # - naive pronoun resolution
 # - integrate NER into author detection? (capture complete names, esp. of
 #   organizations)
+# - extract a noun phrase from author name
+# - disambiguate author names
+# - how to do resolution when there are multiple authors?
+# - data structure "author data":
+#   - first name, last name (as strings)
+#   - title / role (noun phrase before the name)
+# - extract_authors returns a list of authors
+# - resolve_authors takes quotes from the entire document and resolves them
+# - output:
+#   - authorTitle (spaCy span)
+#   - authorFirstName (spaCy span)
+#   - authorLastName (spaCy span)
+#   - authorHead (spaCy token)
 
 def extract_authors(token, lexicon):
     return ';'.join([extract_author(token, lexicon)] + \
@@ -42,7 +59,7 @@ def extract_author(token, lexicon):
     return token.lemma_
 
 
-def extract_proposition(doc, cue, prop_head, pat_id):
+def extract_proposition(doc, match):
 
     def _find_par_start(doc, token):
         '''Finds the token at the beginning of the paragraph
@@ -70,28 +87,28 @@ def extract_proposition(doc, cue, prop_head, pat_id):
             i += direction
         return None
     
-    tokens = [t for t in prop_head.subtree \
-                    if (t not in cue.subtree and t.dep_ != 'punct') \
-                       or prop_head.head == cue]
+    tokens = [t for t in match.prop_head.subtree \
+                    if (t not in match.cue.subtree and t.dep_ != 'punct') \
+                       or match.prop_head.head == match.cue]
     if not tokens:
         raise Exception('No proposition extracted')
     start, end = tokens[0], tokens[-1]
     direct = False
 
     # if the paragraph starts with hyphen -> extend the proposition until there
-    if pat_id == 2:
-        par_start = _find_par_start(doc, prop_head)
+    if match.pat_id == 2:
+        par_start = _find_par_start(doc, match.prop_head)
         if par_start.norm_ == '-':
             start = par_start
             direct = True
 
     # there is a quotation mark between cue and proposition
     # -> proposition is enclosed in quotes
-    q = _quote_between(doc, cue, prop_head)
+    q = _quote_between(doc, match.cue, match.prop_head)
     if q is not None:
-        direction = 1 if prop_head.i > cue.i else -1
+        direction = 1 if match.prop_head.i > match.cue.i else -1
         q2 = _find_matching_quote(doc, q, direction)
-        if q2 is not None and prop_head.i in range(min(q, q2), max(q, q2)):
+        if q2 is not None and match.prop_head.i in range(min(q, q2), max(q, q2)):
             start = doc[min(q, q2)]
             end = doc[max(q, q2)]
             direct = True
@@ -99,13 +116,14 @@ def extract_proposition(doc, cue, prop_head, pat_id):
     return doc[start.i:end.i+1], direct
 
 
-def find_quotes(matcher, doc):
+def quotes_from_matches(matcher, doc, lexicon):
     for m_id, toks in matcher(doc):
         try:
-            prop, direct = extract_proposition(doc, doc[toks[0]], doc[toks[2]], m_id)
-            author = doc[toks[1]]
-            cue = doc[toks[0]]
-            yield (prop, author, cue, direct)
+            match = QuoteMatch(cue=doc[toks[0]], author_head=doc[toks[1]],
+                               prop_head=doc[toks[2]], pat_id=m_id)
+            prop, direct = extract_proposition(doc, match)
+            authors = extract_authors(match.author_head, lexicon)
+            yield Quote(proposition=prop, direct=direct, match=match, authors=authors)
         except Exception as e:
             logging.warning(
                 'Exception while processing articleId={}, sentenceId={}: {}'\
@@ -119,7 +137,7 @@ def find_quotes(matcher, doc):
 #   an already recognized quote,
 # - the beginning of this paragraph is not already marked as a quote,
 # - the paragraph starts with a hyphen or is enclosed in quotation marks.
-def quote_paragraphs(doc, prop_spans):
+def quotes_from_paragraphs(doc, quotes_from_matches):
     
     def _next_paragraph(doc, token):
         i = token.i
@@ -135,41 +153,39 @@ def quote_paragraphs(doc, prop_spans):
                 return None
         return doc[i:j]
     
-    quote_tokens = set(tok.i for (ps, a) in prop_spans for tok in ps)
-    for (ps, author) in prop_spans:
-        np = _next_paragraph(doc, ps[-1])
+    quote_tokens = set(tok.i for q in quotes_from_matches for tok in q.proposition)
+    for q in quotes_from_matches:
+        np = _next_paragraph(doc, q.proposition[-1])
         if np is not None \
                 and int(doc.user_data['sentenceId'][np[0].i]) \
-                    == int(doc.user_data['sentenceId'][ps[-1].i])+1 \
+                    == int(doc.user_data['sentenceId'][q.proposition[-1].i])+1 \
                 and (np[0].norm_ == '-' \
                      or np[0].norm_ == '"' and np[-1].norm_ == '"') \
                 and not any(tok.i in quote_tokens for tok in np):
-            yield (np, author, None, True)
+            m = QuoteMatch(author_head=q.match.author_head, prop_head=None,
+                           cue=np[0], pat_id='paragraph')
+            yield Quote(authors=q.authors, proposition=np, direct=True, match=m)
 
 
-def match_to_dict(doc, prop, author, cue, direct, lexicon):
+def quote_to_dict(q, doc):
     return {
         'articleId': doc.user_data['articleId'],
-        'startSentenceId': doc.user_data['sentenceId'][prop[0].i],
-        'startWordId': doc.user_data['wordId'][prop[0].i],
-        'endSentenceId': doc.user_data['sentenceId'][prop[-1].i],
-        'endWordId': doc.user_data['wordId'][prop[-1].i],
-        'author': extract_authors(author, lexicon),
-        'authorHead': doc.user_data['sentenceId'][author.i] + '-' \
-                      + doc.user_data['wordId'][author.i],
-        'direct': 'true' if direct else 'false'
+        'startSentenceId': doc.user_data['sentenceId'][q.proposition[0].i],
+        'startWordId': doc.user_data['wordId'][q.proposition[0].i],
+        'endSentenceId': doc.user_data['sentenceId'][q.proposition[-1].i],
+        'endWordId': doc.user_data['wordId'][q.proposition[-1].i],
+        'author': q.authors,
+        'authorHead': doc.user_data['sentenceId'][q.match.author_head.i] + '-' \
+                       + doc.user_data['wordId'][q.match.author_head.i],
+        'direct': 'true' if q.direct else 'false'
     }
 
 
-def find_matches(matcher, docs, lexicon):
+def find_quotes(matcher, docs, lexicon):
     for d in docs:
-        prop_spans = []
-        for prop, author, cue, direct in find_quotes(matcher, d):
-            yield match_to_dict(d, prop, author, cue, direct, lexicon)
-            prop_spans.append((prop, author))
-        # whole-paragraph quotes
-        for prop, author, cue, direct in quote_paragraphs(d, prop_spans):
-            yield match_to_dict(d, prop, author, cue, direct, lexicon)
+        qm = list(quotes_from_matches(matcher, d, lexicon))
+        for q in qm + list(quotes_from_paragraphs(d, qm)):
+            yield quote_to_dict(q, d)
 
 
 def read_docs(fp, vocab):
@@ -285,7 +301,7 @@ def main():
 
     with open(args.input_file) as infp:
         docs = read_docs(infp, nlp.vocab)
-        results = find_matches(matcher, docs, rules['LEXICON'])
+        results = find_quotes(matcher, docs, rules['LEXICON'])
         write_results(results, args.output_file)
 
 
