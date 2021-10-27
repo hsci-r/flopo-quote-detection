@@ -43,7 +43,7 @@ LEXICON:
   - tulkinta
 
 PATTERNS:
-  1:
+  quote-1:
   - # AUTHOR sanoo, että PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -60,7 +60,7 @@ PATTERNS:
       REL_OP: '>'
       RIGHT_ATTRS:
         DEP: ccomp
-  2:
+  quote-2:
   - # PROPOSITION, sanoo AUTHOR
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -78,7 +78,7 @@ PATTERNS:
       REL_OP: '<'
       RIGHT_ATTRS:
         POS: {IN: [VERB, ADJ, NOUN]}
-  3:
+  quote-3:
   - # AUTHORn mukaan PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -94,7 +94,7 @@ PATTERNS:
       REL_OP: '<'
       RIGHT_ATTRS:
         POS: {IN: [VERB, ADJ, NOUN]}
-  4:
+  quote-4:
   - # AUTHORn mielestä PROPOSITION
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -113,7 +113,7 @@ PATTERNS:
       REL_OP: '<'
       RIGHT_ATTRS:
         POS: {IN: [VERB, ADJ, NOUN]}
-  5:
+  quote-5:
   - # AUTHOR sanoo PROPOSITION[tekevän ...]
     - RIGHT_ID: cue
       RIGHT_ATTRS:
@@ -135,4 +135,15 @@ PATTERNS:
           IS_SUPERSET:
           - VerbForm=Part
           - Voice=Act
+  name-1:
+  - # FirstName LastName
+    - RIGHT_ID: first
+      RIGHT_ATTRS:
+        POS: PROPN
+    - LEFT_ID: first
+      RIGHT_ID: last
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: 'flat:name'
+        POS: PROPN
 

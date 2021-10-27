@@ -2,6 +2,7 @@ import argparse
 import csv
 from collections import defaultdict, namedtuple
 import logging
+from operator import itemgetter
 import pkg_resources
 import spacy
 import sys
@@ -10,6 +11,7 @@ import yaml
 
 DEFAULT_RULES_FILE = 'rules.yaml'
 
+Author = namedtuple('Author', ['name'])
 Quote = namedtuple('Quote', ['authors', 'proposition', 'direct', 'match'])
 QuoteMatch = namedtuple('QuoteMatch',
                         ['cue', 'author_head', 'prop_head', 'pat_id'])
@@ -33,9 +35,17 @@ QuoteMatch = namedtuple('QuoteMatch',
 #   - authorHead (spaCy token)
 
 def extract_authors(token, lexicon):
-    return ';'.join([extract_author(token, lexicon)] + \
-                    [extract_author(t, lexicon) for t in token.children \
-                                                if t.dep_ == 'conj'])
+    return [extract_author(token, lexicon)] + \
+           [extract_author(t, lexicon) for t in token.children \
+                                       if t.dep_ == 'conj']
+
+
+def extract_flat_name(token):
+    result = [token]
+    for d in token.children:
+        if d.dep_ == 'flat:name':
+            result.extend(extract_flat_name(d))
+    return result
 
 
 def extract_author(token, lexicon):
@@ -52,11 +62,35 @@ def extract_author(token, lexicon):
             if d.pos_ == 'PROPN' and d.dep_ == 'appos':
                 token = d
                 break
-    # names in form "FirstName LastName"
-    for d in token.children:
-        if d.dep_ == 'flat:name':
-            return ' '.join([token.lemma_, d.lemma_])
-    return token.lemma_
+    return Author(name=extract_flat_name(token))
+
+
+def author_to_str(a):
+    return ' '.join(t.lemma_ for t in a.name)
+
+
+def resolve_authors(doc, quotes, names):
+    quotes_and_names = [(q.proposition[0].i, 'quote', q) for q in quotes] \
+                       + [(n[0].i, 'name', n) for n in names]
+    quotes_and_names.sort(key=itemgetter(0))
+    names_by_last = {}
+    for (i, t, x) in quotes_and_names:
+        if t == 'name':
+            names_by_last[x[-1].lemma_] = x
+            names_by_last['hän'] = x
+        elif t == 'quote':
+            for a in x.authors:
+                a_str = author_to_str(a)
+                if a_str in names_by_last:
+                    s_id = doc.user_data['sentenceId'][a.name[0].i]
+                    del a.name[:]
+                    a.name.extend(names_by_last[a_str])
+                    names_by_last['hän'] = names_by_last[a_str]
+                    logging.info(
+                        'Resolving \'{}\' to \'{}\' in articleId={},'
+                        ' sentenceId={}' \
+                        .format(a_str, author_to_str(a),
+                                doc.user_data['articleId'], s_id))
 
 
 def extract_proposition(doc, match):
@@ -96,7 +130,7 @@ def extract_proposition(doc, match):
     direct = False
 
     # if the paragraph starts with hyphen -> extend the proposition until there
-    if match.pat_id == 2:
+    if match.pat_id == 'quote-2':
         par_start = _find_par_start(doc, match.prop_head)
         if par_start.norm_ == '-':
             start = par_start
@@ -116,20 +150,28 @@ def extract_proposition(doc, match):
     return doc[start.i:end.i+1], direct
 
 
-def quotes_from_matches(matcher, doc, lexicon):
+def find_matches(matcher, doc, lexicon):
+    result = {'quotes': list(), 'names': list()}
     for m_id, toks in matcher(doc):
         try:
-            match = QuoteMatch(cue=doc[toks[0]], author_head=doc[toks[1]],
-                               prop_head=doc[toks[2]], pat_id=m_id)
-            prop, direct = extract_proposition(doc, match)
-            authors = extract_authors(match.author_head, lexicon)
-            yield Quote(proposition=prop, direct=direct, match=match, authors=authors)
+            pat_id = doc.vocab[m_id].orth_
+            if pat_id.startswith('quote'):
+                match = QuoteMatch(cue=doc[toks[0]], author_head=doc[toks[1]],
+                                   prop_head=doc[toks[2]], pat_id=pat_id)
+                prop, direct = extract_proposition(doc, match)
+                authors = extract_authors(match.author_head, lexicon)
+                q = Quote(proposition=prop, direct=direct,
+                          match=match, authors=authors)
+                result['quotes'].append(q)
+            elif pat_id.startswith('name'):
+                result['names'].append(extract_flat_name(doc[toks[0]]))
         except Exception as e:
             logging.warning(
                 'Exception while processing articleId={}, sentenceId={}: {}'\
                 .format(doc.user_data['articleId'],
                         doc.user_data['sentenceId'][toks[0]],
                         str(e)))
+    return result
 
 # Recognize direct quotes encompassing an entire paragraph, without a cue.
 # The conditions are as follows:
@@ -174,17 +216,21 @@ def quote_to_dict(q, doc):
         'startWordId': doc.user_data['wordId'][q.proposition[0].i],
         'endSentenceId': doc.user_data['sentenceId'][q.proposition[-1].i],
         'endWordId': doc.user_data['wordId'][q.proposition[-1].i],
-        'author': q.authors,
+        'author': '|'.join(author_to_str(a) for a in q.authors),
         'authorHead': doc.user_data['sentenceId'][q.match.author_head.i] + '-' \
                        + doc.user_data['wordId'][q.match.author_head.i],
         'direct': 'true' if q.direct else 'false'
     }
 
 
-def find_quotes(matcher, docs, lexicon):
+def find_quotes(matcher, docs, lexicon, resolve=True):
     for d in docs:
-        qm = list(quotes_from_matches(matcher, d, lexicon))
-        for q in qm + list(quotes_from_paragraphs(d, qm)):
+        m = find_matches(matcher, d, lexicon)
+        doc_quotes = m['quotes'] + list(quotes_from_paragraphs(d, m['quotes']))
+        doc_quotes.sort(key=lambda q: q.proposition[0].i)
+        if resolve and doc_quotes:
+            resolve_authors(d, doc_quotes, m['names'])
+        for q in doc_quotes:
             yield quote_to_dict(q, d)
 
 
@@ -286,6 +332,8 @@ def parse_arguments():
     parser.add_argument('-i', '--input-file', metavar='FILE')
     parser.add_argument('-r', '--rules-file', metavar='FILE')
     parser.add_argument('-o', '--output-file', metavar='FILE')
+    parser.add_argument('--no-resolve', action='store_true',
+                        help='Do not resolve author names.')
     parser.add_argument('--logfile', metavar='FILE')
     parser.add_argument('-L', '--logging-level', metavar='LEVEL',
                         default='WARNING',
@@ -304,7 +352,8 @@ def main():
 
     with open(args.input_file) as infp:
         docs = read_docs(infp, nlp.vocab)
-        results = find_quotes(matcher, docs, rules['LEXICON'])
+        results = find_quotes(matcher, docs, rules['LEXICON'],
+                              resolve=not args.no_resolve)
         write_results(results, args.output_file)
 
 
