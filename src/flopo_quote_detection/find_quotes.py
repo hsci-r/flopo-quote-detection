@@ -274,11 +274,11 @@ def write_results(results, filename):
             writer.writerows(results)
 
 
-def setup_logging(logfile):
+def setup_logging(logfile, level):
     if logfile is None:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=level)
     else:
-        logging.basicConfig(filename=logfile, level=logging.INFO)
+        logging.basicConfig(filename=logfile, level=level)
 
 
 def parse_arguments():
@@ -287,12 +287,15 @@ def parse_arguments():
     parser.add_argument('-r', '--rules-file', metavar='FILE')
     parser.add_argument('-o', '--output-file', metavar='FILE')
     parser.add_argument('--logfile', metavar='FILE')
+    parser.add_argument('-L', '--logging-level', metavar='LEVEL',
+                        default='WARNING',
+                        choices=['ERROR', 'WARNING', 'INFO', 'DEBUG'])
     return parser.parse_args()
 
     
 def main():
     args = parse_arguments()
-    setup_logging(args.logfile)
+    setup_logging(args.logfile, args.logging_level)
     rules = load_rules(args.rules_file)
     nlp = spacy.blank('fi')
     matcher = spacy.matcher.DependencyMatcher(nlp.vocab)
