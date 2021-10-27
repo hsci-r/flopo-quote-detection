@@ -150,7 +150,7 @@ def quotes_from_paragraphs(doc, quotes_from_matches):
         while int(doc.user_data['paragraphId'][j]) == prev_par_id+1:
             j += 1
             if j >= len(doc):
-                return None
+                break
         return doc[i:j]
     
     quote_tokens = set(tok.i for q in quotes_from_matches for tok in q.proposition)
