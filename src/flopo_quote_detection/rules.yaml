@@ -1,43 +1,74 @@
 LEXICON:
   SPEECH_ACT_VERBS: &SPEECH_ACT_VERBS
+  - ajatella
+  - analysoida
+  - arvailla
   - arvella
   - arvioida
+  - arvoida
   - edellyttää
   - ehdottaa
+  - eritellä
   - huomauttaa
   - ihmetellä
   - ilmoittaa
+  - jälkiviisaasti
   - jatkaa
   - katsoa
   - kehua
   - kertoa
   - kiitellä
   - kirjoittaa
+  - konkretisoida
   - korostaa
   - kuitata
+  - kuvitella
   - kysyä
   - lisätä
   - luetella
+  - määritellä
   - muistuttaa
   - myöntää
+  - olettaa
+  - päätellä
   - pahoitella
   - painottaa
   - perustella
+  - pohtia
   - sanoa
+  - selittää
+  - selventää
+  - selventääpäätellä
   - summata
-  - tarkentaa
-  - todeta
-  - tviitata
   - tähdentää
+  - tajuta
+  - tarkastella
+  - tarkentaa
+  - täsmentää
+  - todentaa
+  - todeta
+  - todistaa
+  - tulkita
+  - tviitata
   - uskoa
+  - väittää
   - valittaa
+  - vannoa
   - varoittaa
   - vastata
+  - veikata
+  - veikkailla
+  - vihjaista
   - viitata
+  - yksilöidä
   MESSAGE_NOUNS:
   - ehdotus
   - laskelma
   - muistio
+  - ohje
+  - ohjeistus
+  - raportti
+  - selvitys
   - tiedote
   - tieto
   - tulkinta
