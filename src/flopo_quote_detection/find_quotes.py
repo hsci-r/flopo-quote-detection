@@ -160,6 +160,11 @@ def find_matches(matcher, doc, lexicon):
                                    prop_head=doc[toks[2]], pat_id=pat_id)
                 prop, direct = extract_proposition(doc, match)
                 authors = extract_authors(match.author_head, lexicon)
+                if not prop:
+                    logging.warning(\
+                        'Empty proposition in articleId={}, sentenceId={}'\
+                        .format(doc.user_data['articleId'],
+                                doc.user_data['sentenceId'][toks[0]]))
                 q = Quote(proposition=prop, direct=direct,
                           match=match, authors=authors)
                 result['quotes'].append(q)
@@ -167,7 +172,7 @@ def find_matches(matcher, doc, lexicon):
                 result['names'].append(extract_flat_name(doc[toks[0]]))
         except Exception as e:
             logging.warning(
-                'Exception while processing articleId={}, sentenceId={}: {}'\
+                'Exception in find_matches() - articleId={}, sentenceId={}: {}'\
                 .format(doc.user_data['articleId'],
                         doc.user_data['sentenceId'][toks[0]],
                         str(e)))
@@ -197,16 +202,24 @@ def quotes_from_paragraphs(doc, quotes_from_matches):
     
     quote_tokens = set(tok.i for q in quotes_from_matches for tok in q.proposition)
     for q in quotes_from_matches:
-        np = _next_paragraph(doc, q.proposition[-1])
-        if np is not None \
-                and int(doc.user_data['sentenceId'][np[0].i]) \
-                    == int(doc.user_data['sentenceId'][q.proposition[-1].i])+1 \
-                and (np[0].norm_ == '-' \
-                     or np[0].norm_ == '"' and np[-1].norm_ == '"') \
-                and not any(tok.i in quote_tokens for tok in np):
-            m = QuoteMatch(author_head=q.match.author_head, prop_head=None,
-                           cue=np[0], pat_id='paragraph')
-            yield Quote(authors=q.authors, proposition=np, direct=True, match=m)
+        try:
+            np = _next_paragraph(doc, q.proposition[-1])
+            if np is not None \
+                    and int(doc.user_data['sentenceId'][np[0].i]) \
+                        == int(doc.user_data['sentenceId'][q.proposition[-1].i])+1 \
+                    and (np[0].norm_ == '-' \
+                         or np[0].norm_ == '"' and np[-1].norm_ == '"') \
+                    and not any(tok.i in quote_tokens for tok in np):
+                m = QuoteMatch(author_head=q.match.author_head, prop_head=None,
+                               cue=np[0], pat_id='paragraph')
+                yield Quote(authors=q.authors, proposition=np, direct=True, match=m)
+        except Exception as e:
+            logging.warning(
+                'Exception in quotes_from_paragraphs() -'
+                ' articleId={}, sentenceId={}: {}'\
+                .format(doc.user_data['articleId'],
+                        doc.user_data['sentenceId'][toks[0]],
+                        str(e)))
 
 
 def quote_to_dict(q, doc):
