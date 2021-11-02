@@ -218,7 +218,7 @@ def quotes_from_paragraphs(doc, quotes_from_matches):
                 'Exception in quotes_from_paragraphs() -'
                 ' articleId={}, sentenceId={}: {}'\
                 .format(doc.user_data['articleId'],
-                        doc.user_data['sentenceId'][toks[0]],
+                        doc.user_data['sentenceId'][q.match.cue.i],
                         str(e)))
 
 
