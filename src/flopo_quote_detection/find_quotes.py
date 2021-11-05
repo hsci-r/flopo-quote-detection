@@ -147,6 +147,10 @@ def extract_proposition(doc, match):
             end = doc[max(q, q2)]
             direct = True
 
+    # final check
+    if not doc[start.i:end.i+1]:
+        raise Exception('No proposition extracted')
+
     return doc[start.i:end.i+1], direct
 
 
