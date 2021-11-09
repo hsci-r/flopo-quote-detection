@@ -13,11 +13,12 @@ setup(
     long_description_content_type='text/markdown',
     packages=find_packages('src', exclude=['tests', 'tests.*']),
     package_dir={'': 'src'},
-    package_data={'flopo_quote_detection': ['rules.yaml']},
+    package_data={'flopo_quote_detection': ['rules_*.yaml']},
     test_suite='tests',
     install_requires=['pyyaml', 'spacy'],
     entry_points={
         'console_scripts' : [
+            'find_actors   = flopo_quote_detection.find_actors:main',
             'find_quotes   = flopo_quote_detection.find_quotes:main',
         ]
     }

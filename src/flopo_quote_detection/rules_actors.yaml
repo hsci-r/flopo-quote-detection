@@ -1,0 +1,45 @@
+PATTERNS:
+  actor-1:
+  - # SDP:n <--[nmod:poss]-- puheenjohtaja <--[compound:nn]-- Antti --[flat:name]--> Rinne
+    - RIGHT_ID: name
+      RIGHT_ATTRS:
+        POS: PROPN
+    - LEFT_ID: name
+      RIGHT_ID: role
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        POS: NOUN
+        DEP: compound:nn
+    - LEFT_ID: role
+      RIGHT_ID: org
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: nmod:poss
+    - LEFT_ID: name
+      RIGHT_ID: lastname
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        POS: PROPN
+        DEP: flat:name
+  actor-2:
+  - # EK:n <--[nmod:poss]-- hallituksen <--[nmod:poss]-- puheenjohtajan --[appos]--> Matti --[flat:name]--> Alahuhdan
+    - RIGHT_ID: role
+      RIGHT_ATTRS:
+        POS: NOUN
+    - LEFT_ID: role
+      RIGHT_ID: name
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        POS: PROPN
+        DEP: appos
+    - LEFT_ID: role
+      RIGHT_ID: org
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        DEP: nmod:poss
+    - LEFT_ID: name
+      RIGHT_ID: lastname
+      REL_OP: '>'
+      RIGHT_ATTRS:
+        POS: PROPN
+        DEP: flat:name

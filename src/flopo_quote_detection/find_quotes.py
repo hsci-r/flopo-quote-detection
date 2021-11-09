@@ -9,7 +9,7 @@ import sys
 import yaml
 
 
-DEFAULT_RULES_FILE = 'rules.yaml'
+DEFAULT_RULES_FILE = 'rules_quotes.yaml'
 
 Author = namedtuple('Author', ['name'])
 Quote = namedtuple('Quote', ['authors', 'proposition', 'direct', 'match'])

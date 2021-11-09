@@ -1,4 +1,4 @@
-# Rule-based quote detection for Finnish news
+# Rule-based processing of Finnish news
 
 ## Installation
 
@@ -6,7 +6,7 @@
 python3 setup.py install
 ```
 
-## Usage
+## Quote detection
 
 ```
 find_quotes -i [INPUT_FILE] -r [RULES_FILE] -o [OUTPUT_FILE]
@@ -22,3 +22,11 @@ The minimal working call is thus:
 ```
 find_quotes -i [INPUT_FILE]
 ```
+
+## Actor detection
+
+```
+find_actors -i [INPUT_FILE] -r [RULES_FILE] -o [OUTPUT_FILE]
+```
+
+Arguments are the same as for `find_quotes`.
