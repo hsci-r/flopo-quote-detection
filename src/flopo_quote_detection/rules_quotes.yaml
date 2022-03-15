@@ -22,14 +22,17 @@ LEXICON:
   - konkretisoida
   - korostaa
   - kuitata
+  - kuvailla
   - kuvitella
   - kysyä
   - lisätä
   - luetella
   - määritellä
+  - muistella
   - muistuttaa
   - myöntää
   - olettaa
+  - opastaa
   - päätellä
   - pahoitella
   - painottaa
@@ -108,7 +111,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: {IN: [VERB, ADJ, NOUN]}
+        POS: {IN: [VERB, ADJ, NOUN, PROPN]}
   quote-3:
   - # AUTHORn mukaan PROPOSITION
     - RIGHT_ID: cue
