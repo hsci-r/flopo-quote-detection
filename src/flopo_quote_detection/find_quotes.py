@@ -74,18 +74,37 @@ def resolve_authors(doc, quotes, names):
                        + [(n[0].i, 'name', n) for n in names]
     quotes_and_names.sort(key=itemgetter(0))
     names_by_last = {}
+    # backward lookup -- names and pronouns
     for (i, t, x) in quotes_and_names:
         if t == 'name':
-            names_by_last[x[-1].lemma_] = x
+            names_by_last[x[-1].lemma_.lower()] = x
             names_by_last['hän'] = x
         elif t == 'quote':
             for a in x.authors:
                 a_str = author_to_str(a)
-                if a_str in names_by_last:
+                if a_str.lower() in names_by_last:
                     s_id = doc.user_data['sentenceId'][a.name[0].i]
                     del a.name[:]
-                    a.name.extend(names_by_last[a_str])
-                    names_by_last['hän'] = names_by_last[a_str]
+                    a.name.extend(names_by_last[a_str.lower()])
+                    names_by_last['hän'] = names_by_last[a_str.lower()]
+                    logging.info(
+                        'Resolving \'{}\' to \'{}\' in articleId={},'
+                        ' sentenceId={}' \
+                        .format(a_str, author_to_str(a),
+                                doc.user_data['articleId'], s_id))
+    # forward lookup -- only names
+    quotes_and_names.reverse()
+    names_by_last = {}
+    for (i, t, x) in quotes_and_names:
+        if t == 'name':
+            names_by_last[x[-1].lemma_.lower()] = x
+        elif t == 'quote':
+            for a in x.authors:
+                a_str = author_to_str(a)
+                if a_str.lower() in names_by_last:
+                    s_id = doc.user_data['sentenceId'][a.name[0].i]
+                    del a.name[:]
+                    a.name.extend(names_by_last[a_str.lower()])
                     logging.info(
                         'Resolving \'{}\' to \'{}\' in articleId={},'
                         ' sentenceId={}' \
