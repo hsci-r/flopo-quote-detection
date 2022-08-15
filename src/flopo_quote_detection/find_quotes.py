@@ -1,9 +1,10 @@
 import argparse
-import csv
 from collections import defaultdict, namedtuple
+import csv
 import logging
 from operator import itemgetter
 import pkg_resources
+import re
 import spacy
 import sys
 import yaml
@@ -114,13 +115,14 @@ def resolve_authors(doc, quotes, names):
 
 def extract_proposition(doc, match):
 
-    def _find_par_start(doc, token):
-        '''Finds the token at the beginning of the paragraph
-           starting at `token`.'''
+    def _find_par_or_line_start(doc, token):
+        '''Searches back from `token` until a paragraph
+           or line boundary is encountered.'''
         par_id = doc.user_data['paragraphId'][token.i]
         par_start = token
-        while par_start.i > 0 and \
-                doc.user_data['paragraphId'][par_start.i-1] == par_id:
+        while par_start.i > 0 \
+                and doc.user_data['paragraphId'][par_start.i-1] == par_id \
+                and '\n' not in doc.user_data['spacesAfter'][par_start.i-1]:
             par_start = doc[par_start.i-1]
         return par_start
 
@@ -150,7 +152,7 @@ def extract_proposition(doc, match):
 
     # if the paragraph starts with hyphen -> extend the proposition until there
     if match.pat_id == 'quote-2':
-        par_start = _find_par_start(doc, match.prop_head)
+        par_start = _find_par_or_line_start(doc, match.prop_head)
         if par_start.norm_ == '-':
             start = par_start
             direct = True
@@ -209,24 +211,29 @@ def find_matches(matcher, doc, lexicon):
 # - the paragraph starts with a hyphen or is enclosed in quotation marks.
 def quotes_from_paragraphs(doc, quotes_from_matches):
     
-    def _next_paragraph(doc, token):
+    def _next_line_or_paragraph(doc, token):
         i = token.i
         prev_par_id = int(doc.user_data['paragraphId'][i])
-        while int(doc.user_data['paragraphId'][i]) != prev_par_id+1:
+        while int(doc.user_data['paragraphId'][i]) != prev_par_id+1 \
+              and (i == 0 or '\n' not in doc.user_data['spacesAfter'][i-1]):
             i += 1
             if i >= len(doc):
                 return None
         j = i
-        while int(doc.user_data['paragraphId'][j]) == prev_par_id+1:
+        cur_par_id = int(doc.user_data['paragraphId'][i])
+        while int(doc.user_data['paragraphId'][j]) == cur_par_id \
+              and '\n' not in doc.user_data['spacesAfter'][j]:
             j += 1
             if j >= len(doc):
                 break
+        if j == i:
+            return None
         return doc[i:j]
     
     quote_tokens = set(tok.i for q in quotes_from_matches for tok in q.proposition)
     for q in quotes_from_matches:
         try:
-            np = _next_paragraph(doc, q.proposition[-1])
+            np = _next_line_or_paragraph(doc, q.proposition[-1])
             if np is not None \
                     and int(doc.user_data['sentenceId'][np[0].i]) \
                         == int(doc.user_data['sentenceId'][q.proposition[-1].i])+1 \
@@ -273,14 +280,15 @@ def find_quotes(matcher, docs, lexicon, resolve=True):
 def read_docs(fp, vocab):
     'Read documents from CoNLL-CSV format to spaCy Doc objects.'
 
-    def make_doc(vocab, tokens, doc_id, par_ids, sent_ids, tok_ids):
+    def make_doc(vocab, tokens, doc_id, par_ids, sent_ids, tok_ids, spaces_after):
         try:
             return spacy.tokens.Doc(
                 vocab,
                 user_data={ 'articleId': cur_doc_id,
                             'paragraphId': par_ids,
                             'sentenceId': sent_ids,
-                            'wordId': tok_ids },
+                            'wordId': tok_ids,
+                            'spacesAfter': spaces_after },
                 **tokens)
         except Exception as e:
             logging.warning(
@@ -292,16 +300,19 @@ def read_docs(fp, vocab):
     spacy.tokens.Token.set_extension('paragraphId', default=None)
     spacy.tokens.Token.set_extension('sentenceId', default=None)
     spacy.tokens.Token.set_extension('wordId', default=None)
+    spacy.tokens.Token.set_extension('spacesAfter', default=None)
     
-    cur_doc_id, pos, offset, par_ids, sent_ids, tok_ids = None, 0, -1, [], [], []
+    spaces_pat = re.compile('SpacesAfter=([^|]*)')
+    cur_doc_id, pos, offset = None, 0, -1
+    par_ids, sent_ids, tok_ids, spaces_after = [], [], [], []
     tokens = defaultdict(lambda: list())
     for row in reader:
         if row['articleId'] != cur_doc_id:
             if cur_doc_id is not None:
-                doc = make_doc(vocab, tokens, cur_doc_id, par_ids, sent_ids, tok_ids)
+                doc = make_doc(vocab, tokens, cur_doc_id, par_ids, sent_ids, tok_ids, spaces_after)
                 if doc is not None:
                     yield doc
-                par_ids, sent_ids, tok_ids = [], [], []
+                par_ids, sent_ids, tok_ids, spaces_after = [], [], [], []
                 tokens = defaultdict(lambda: list())
             cur_doc_id, pos, offset = row['articleId'], 0, -1
         if int(row['wordId']) == 1:
@@ -325,8 +336,14 @@ def read_docs(fp, vocab):
         par_ids.append(row['paragraphId'])
         sent_ids.append(row['sentenceId'])
         tok_ids.append(row['wordId'])
+        m = spaces_pat.search(row['misc'])
+        # TODO not sure how to decode the space strings properly
+        # ('\s' doesn't seem to be anything standard?)
+        # codecs.decode(..., 'unicode_escape') gives some weird characters
+        spaces_after.append(m.group(1).replace('\\s', ' ').replace('\\n', '\n') \
+                            if m is not None else '')
         pos += 1
-    doc = make_doc(vocab, tokens, cur_doc_id, par_ids, sent_ids, tok_ids)
+    doc = make_doc(vocab, tokens, cur_doc_id, par_ids, sent_ids, tok_ids, spaces_after)
     if doc is not None:
         yield doc
 
