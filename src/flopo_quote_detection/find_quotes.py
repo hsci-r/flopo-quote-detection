@@ -168,6 +168,10 @@ def extract_proposition(doc, match):
             end = doc[max(q, q2)]
             direct = True
 
+    # if the proposition is followed by a punctuation mark -> include it
+    if end.i < len(doc) and doc[end.i+1].pos_ == 'PUNCT':
+        end = doc[end.i+1]
+
     # final check
     if not doc[start.i:end.i+1]:
         raise Exception('No proposition extracted')
