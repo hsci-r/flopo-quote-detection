@@ -120,7 +120,7 @@ PATTERNS:
       RIGHT_ID: proposition
       REL_OP: '<'
       RIGHT_ATTRS:
-        POS: {IN: [VERB, ADJ, NOUN, PROPN]}
+        POS: {IN: [VERB, ADJ, NOUN, PROPN, ADV, AUX]}
   quote-3:
   - # AUTHORn mukaan PROPOSITION
     - RIGHT_ID: cue
