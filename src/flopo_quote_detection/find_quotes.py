@@ -80,7 +80,7 @@ def resolve_authors(doc, quotes, names):
         if t == 'name':
             names_by_last[x[-1].lemma_.lower()] = x
             names_by_last['hän'] = x
-        elif t == 'quote':
+        elif t == 'quote' and x.authors is not None:
             for a in x.authors:
                 a_str = author_to_str(a)
                 if a_str.lower() in names_by_last:
@@ -99,7 +99,7 @@ def resolve_authors(doc, quotes, names):
     for (i, t, x) in quotes_and_names:
         if t == 'name':
             names_by_last[x[-1].lemma_.lower()] = x
-        elif t == 'quote':
+        elif t == 'quote' and x.authors is not None:
             for a in x.authors:
                 a_str = author_to_str(a)
                 if a_str.lower() in names_by_last:
@@ -214,6 +214,18 @@ def find_matches(matcher, doc, lexicon):
 # - the beginning of this paragraph is not already marked as a quote,
 # - the paragraph starts with a hyphen or is enclosed in quotation marks.
 def quotes_from_paragraphs(doc, quotes_from_matches):
+
+    def _first_line_or_paragraph(doc):
+        j = 0
+        cur_par_id = int(doc.user_data['paragraphId'][0])
+        while int(doc.user_data['paragraphId'][j]) == cur_par_id \
+              and '\n' not in doc.user_data['spacesAfter'][j]:
+            j += 1
+            if j >= len(doc):
+                break
+        if j == 0:
+            return None
+        return doc[:j]
     
     def _next_line_or_paragraph(doc, token):
         i = token.i
@@ -246,6 +258,7 @@ def quotes_from_paragraphs(doc, quotes_from_matches):
                     and not any(tok.i in quote_tokens for tok in np):
                 m = QuoteMatch(author_head=q.match.author_head, prop_head=None,
                                cue=np[0], pat_id='paragraph')
+                quote_tokens |= set(tok.i for tok in np)
                 yield Quote(authors=q.authors, proposition=np, direct=True, match=m)
         except Exception as e:
             logging.warning(
@@ -254,7 +267,22 @@ def quotes_from_paragraphs(doc, quotes_from_matches):
                 .format(doc.user_data['articleId'],
                         doc.user_data['sentenceId'][q.match.cue.i],
                         str(e)))
-
+    # mark the remaining, unattributable paragraphs
+    i, j = 0, 0
+    while i < len(doc) and j < len(doc):
+        j = i
+        while j < len(doc)-1 \
+              and int(doc.user_data['paragraphId'][j+1]) \
+                  == int(doc.user_data['paragraphId'][i]) \
+              and '\n' not in doc.user_data['spacesAfter'][j]:
+            j += 1
+        if (doc[i].norm_ == '-' \
+            or doc[i].norm_ == '"' and doc[j].norm_ == '"') \
+           and not any(tok.i in quote_tokens for tok in doc[i:j]):
+            m = QuoteMatch(author_head=None, prop_head=None,
+                           cue=doc[i], pat_id='paragraph')
+            yield Quote(authors=None, proposition=doc[i:j], direct=True, match=m)
+        i = j+1
 
 def quote_to_dict(q, doc):
     return {
@@ -263,9 +291,11 @@ def quote_to_dict(q, doc):
         'startWordId': doc.user_data['wordId'][q.proposition[0].i],
         'endSentenceId': doc.user_data['sentenceId'][q.proposition[-1].i],
         'endWordId': doc.user_data['wordId'][q.proposition[-1].i],
-        'author': '|'.join(author_to_str(a) for a in q.authors),
+        'author': '|'.join(author_to_str(a) for a in q.authors) \
+                  if q.authors is not None else '_',
         'authorHead': doc.user_data['sentenceId'][q.match.author_head.i] + '-' \
-                       + doc.user_data['wordId'][q.match.author_head.i],
+                       + doc.user_data['wordId'][q.match.author_head.i] \
+                      if q.match.author_head is not None else '_',
         'direct': 'true' if q.direct else 'false'
     }
 
