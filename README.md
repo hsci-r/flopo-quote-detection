@@ -8,6 +8,13 @@ python3 setup.py install
 
 ## Quote detection
 
+A rule-based method for quote detection described in the following article:
+
+Maciej Janicki, Antti Kanner and Eetu Mäkelä.
+[Detection and attribution of quotes in Finnish news media: BERT vs. rule-based approach](https://openreview.net/forum?id=YTVwaoG0Mi).
+In: *Proceedings of the 24th Nordic Conference on Computational Linguistics (NoDaLiDa)*,
+Tórshavn, Faroe Islands, May 2023.
+
 ```
 find_quotes -i [INPUT_FILE] -r [RULES_FILE] -o [OUTPUT_FILE]
 ```
@@ -22,6 +29,13 @@ The minimal working call is thus:
 ```
 find_quotes -i [INPUT_FILE]
 ```
+
+The input file should be in CoNLL-CSV format. Example input and ground
+truth files can be found in
+[hsci-r/fi-quote-coref-corpus](https://github.com/hsci-r/fi-quote-coref-corpus) 
+and the `flopo-eval` tool from
+[flopo-formats](https://github.com/hsci-r/flopo-formats) can be used
+for evaluation.
 
 ## Actor detection
 
