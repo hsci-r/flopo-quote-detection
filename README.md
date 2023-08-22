@@ -1,5 +1,13 @@
 # Rule-based processing of Finnish news
 
+This repository contains the rule-based quote detection engine described
+in the following publication:
+
+Maciej Janicki, Antti Kanner and Eetu Mäkelä.
+[Detection and attribution of quotes in Finnish news media: BERT vs. rule-based approach](https://openreview.net/forum?id=YTVwaoG0Mi).
+In: *Proceedings of the 24th Nordic Conference on Computational Linguistics (NoDaLiDa)*,
+Tórshavn, Faroe Islands, May 2023.
+
 ## Installation
 
 ```
